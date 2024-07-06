@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "simulate": "source .env && node ./functions/simulators/alpacaMintSimulator.js"
+  },
+  "engines": {"node": ">=18"},
+  "dependencies": {
+    "@chainlink/functions-toolkit": "^0.2.8"
+  }
+}
