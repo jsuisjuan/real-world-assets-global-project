@@ -1,9 +1,13 @@
 {
   "scripts": {
-    "simulate": "source .env && node ./functions/simulators/alpacaMintSimulator.js"
+    "simulate": "dotenv -e .env -- node ./functions/simulators/alpacaMintSimulator.js"
   },
-  "engines": {"node": ">=18"},
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "@chainlink/functions-toolkit": "^0.2.8"
+    "@chainlink/functions-toolkit": "^0.2.8",
+    "dotenv": "^16.4.5",
+    "dotenv-cli": "^7.4.2"
   }
 }

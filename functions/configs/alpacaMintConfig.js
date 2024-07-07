@@ -2,7 +2,7 @@ const fs = require('fs');
 const { Location, ReturnType, CodeLanguage } = require('@chainlink/functions-toolkit');
 
 const requestConfig = {
-    'source': fs.readFileSync('./functions/source/alpacaBalance.js').toString(),
+    'source': fs.readFileSync('./functions/sources/alpacaBalance.js').toString(),
     'codeLocation': Location.Inline,
     'secrets': {
         'alpacaKey': process.env.ALPACA_API_KEY,
