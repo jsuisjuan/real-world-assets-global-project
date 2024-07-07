@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "simulate": "dotenv -e .env -- node ./functions/simulators/alpacaMintSimulator.js"
+    "simulate": "dotenv -e .env -- node ./functions/simulators/alpacaMintSimulator.js",
+    "uploadSecrets": "dotenv -e .env -- node ./functions/uploadSecrets.js"
   },
   "engines": {
     "node": ">=18"
