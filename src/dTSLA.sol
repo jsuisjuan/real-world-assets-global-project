@@ -44,9 +44,13 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
     string  private s_mintSourceCode;
     string  private s_redeemSourceCode;
     uint256 private s_portfolioBalance;
+    bytes32 private s_mostRecentRequestId;
 
     mapping(bytes32 requestId => dTslaRequest request) private s_requestIdToRequest;
     mapping(address user => uint256 pendingWithdrawlAmount) private s_userToWithdrawlAmount;
+
+    uint8 donHostedSecretsSlotID = 0; // verificar essa variavel
+    uint64 donHostedSecretsVersion = 171276996; // verificar essa variavel
 
     constructor(
         string memory mintSourceCode, 
@@ -68,7 +72,9 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
     function sendMintRequest(uint256 amount) external onlyOwner returns (bytes32) {
         FunctionsRequest.Request memory req;
         req.initializeRequestForInlineJavaScript(s_mintSourceCode);
+        req.addDONHostedSecrets(donHostedSecretsSlotID, donHostedSecretsVersion);
         bytes32 requestId = _sendRequest(req.encodeCBOR(), i_subId, GAS_LIMIT, DON_ID);
+        s_mostRecentRequestId = requestId;
         s_requestIdToRequest[requestId] = dTslaRequest(amount, msg.sender, MintOrRedeem.mint);
         return requestId;
     }
@@ -111,7 +117,7 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
 
         bytes32 requestId = _sendRequest(req.encodeCBOR(), i_subId, GAS_LIMIT, DON_ID);
         s_requestIdToRequest[requestId] = dTslaRequest(amountdTsla, msg.sender, MintOrRedeem.redeem);
-
+        s_mostRecentRequestId = requestId;
         _burn(msg.sender, amountdTsla);
     }
 
@@ -136,7 +142,16 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
     }
 
     function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory /*err*/) internal override {
-        s_requestIdToRequest[requestId].mintOrRedeem == MintOrRedeem.mint ? _mintFulFillRequest(requestId, response) : _redeemFulFillRequest(requestId, response);
+        //s_requestIdToRequest[requestId].mintOrRedeem == MintOrRedeem.mint ? _mintFulFillRequest(requestId, response) : _redeemFulFillRequest(requestId, response);
+        s_portfolioBalance = uint256(bytes32(response));
+    }
+
+    function finishMint() external onlyOwner {
+        uint256 amountOfTokensToMint = s_requestIdToRequest[s_mostRecentRequestId].amountOfToken;
+        if (_getCollateralRatioAdjustedTotalBalance(amountOfTokensToMint) > s_portfolioBalance) {
+            revert dTSLA__NotEnoughtCollateral();
+        }
+        _mint(s_requestIdToRequest[s_mostRecentRequestId].requester, amountOfTokensToMint);
     }
 
     function _getCollateralRatioAdjustedTotalBalance(uint256 amountOfTokensToMint) internal view returns (uint256) {
