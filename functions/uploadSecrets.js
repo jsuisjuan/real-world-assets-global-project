@@ -9,8 +9,8 @@ async function uploadSecrets() {
         'https://02.functions-gateway.testnet.chain.link/'
     ];
     
-    const privateKey = process.env.PRIVATE_KEY; // tenho que verificar da onde eu tiro esse env
-    const rpcUrl = process.env.SEPOLIA_RPC_URL; // tenho que verificar da onde eu tiro esse env
+    const privateKey = process.env.PRIVATE_KEY;
+    const rpcUrl = process.env.SEPOLIA_RPC_URL;
     const secrets = {
         'alpacaKey': process.env.ALPACA_API_KEY,
         'alpacaSecret': process.env.ALPACA_SECRET_KEY

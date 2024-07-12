@@ -185,7 +185,6 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
         return uint256(price) * ADDITIONAL_FEED_PRECISION;
     }
 
-
     function getRequest(bytes32 requestId) public view returns (dTslaRequest memory) {
         return s_requestIdToRequest[requestId];
     }
