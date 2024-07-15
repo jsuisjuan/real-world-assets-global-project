@@ -12,6 +12,9 @@ docs/
 
 # Dotenv file
 .env
-node_modules
-
-Makefile
+node_modules/
+.notes.md
+broadcast/
+etherscan.json
+.DS_Store
+.script.md
