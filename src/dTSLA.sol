@@ -49,8 +49,8 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
     mapping(bytes32 requestId => dTslaRequest request) private s_requestIdToRequest;
     mapping(address user => uint256 pendingWithdrawlAmount) private s_userToWithdrawlAmount;
 
-    uint8 donHostedSecretsSlotID = 0; // verificar essa variavel
-    uint64 donHostedSecretsVersion = 171276996; // verificar essa variavel
+    uint8 donHostedSecretsSlotID = 0;
+    uint64 donHostedSecretsVersion = 1721067443;
 
     constructor(
         string memory mintSourceCode, 
