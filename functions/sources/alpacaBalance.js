@@ -13,7 +13,7 @@ const alpacaRequest = Functions.makeHttpRequest({
 });
 
 const [response] = await Promise.all([alpacaRequest]);
-console.log('response', response);
 const portfolioBalance = response.data.portfolio_value;
+
 console.log(`Alpaca Portfolio Balance: ${portfolioBalance}`);
 return Functions.encodeUint256(Math.round(portfolioBalance * 1000000000000000000));
