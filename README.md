@@ -64,3 +64,7 @@ $ forge --help
 $ anvil --help
 $ cast --help
 ```
+### Setup
+para fazer rodar as funções do chainlink rodar, tem que seguir os passos: https://docs.chain.link/chainlink-functions/getting-started#examine-the-code
+
+vai ter que criar uma rpc url key com infura
