@@ -6,20 +6,31 @@ import { ConfirmedOwner } from '@chainlink/contracts/v0.8/ConfirmedOwner.sol';
 import { FunctionsClient } from '@chainlink/contracts/v0.8/functions/dev/v1_0_0/FunctionsClient.sol';
 import { FunctionsRequest } from '@chainlink/contracts/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol';
 import { AggregatorV3Interface } from '@chainlink/contracts/v0.8/interfaces/AggregatorV3Interface.sol';
-
+// vou precisar importar a OracleLib
 import { ERC20 } from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import { Strings } from '@openzeppelin/contracts/utils/Strings.sol';
+import { Pausable } from '@openzeppelin/contracts/utils/Pausable.sol';
 
-contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
+/**
+ * @title dTSLA
+ * @notice This is our contract to make requests to the Alpaca API to mint TSLA-backed dTSLA tokens
+ * @dev This contract is meant to be for educational purposes only
+ */
+contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20, Pausable {
     using FunctionsRequest for FunctionsRequest.Request;
+    //using OracleLib for AggregatorV3Interface;
     using Strings for uint256;
 
     error dTSLA__NotEnoughtCollateral();
-    error dTSLA__DoesntMeetMinimumWithdrawlAmount();
-    error dTSLA__TransferFailed();
+    error dTSLA__BelowMinimumRedemption();
+    error dTSLA__RedemptionFailed();
+
+    // custom error type
+    error UnexpectedRequestID(bytes32 requestId);
 
     enum MintOrRedeem {
-        mint, redeem
+        mint, 
+        redeem
     }
 
     struct dTslaRequest {
@@ -29,65 +40,173 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
     }
 
     uint256 constant PRECISION = 1e18;
-    address constant SEPOLIA_FUNCTIONS_ROUTER = 0xb83E47C2bC239B3bf370bc41e1459A34b41238D0;
-    address constant SEPOLIA_TSLA_PRICE_FEED = 0xc59E3633BAAC79493d908e63626716e204A45EdF; // this is actually LINK/USD for demo purposes
-    address constant SEPOLIA_USDC_PRICE_FEED = 0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E;
-    address constant SEPOLIA_USDC = 0xAF0d217854155ea67D583E4CB5724f7caeC3Dc87;
-    bytes32 constant DON_ID = hex'66756e2d657468657265756d2d7365706f6c69612d3100000000000000000000';
     uint256 constant ADDITIONAL_FEED_PRECISION = 1e10;
-    uint32  constant GAS_LIMIT = 300_000;
+    uint32 constant GAS_LIMIT = 300_000;
     uint256 constant COLLATERAL_RATIO = 200; // 200% collateral ration means if there is $200 of TSLA in the brokerage, we can mint AT MOST %100 of dTSLA
     uint256 constant COLLATERAL_PRECISION = 100;
-    uint256 constant MINIMUM_WITHDRAWL_AMOUNT = 100e18; // USDC has 6 decimals
+    uint256 constant MINIMUM_REDEMPTION_COIN_REDEMPTION_AMOUNT = 100e18; // USDC has 6 decimals
 
-    uint64  immutable i_subId;
-    string  private s_mintSourceCode;
-    string  private s_redeemSourceCode;
-    uint256 private s_portfolioBalance;
-    bytes32 private s_mostRecentRequestId;
+    uint64 immutable i_subId;
+    address s_functionsRouter;
+    string s_mintSource;
+    string s_redeemSource;
+    bytes32 s_donID;
+    uint256 s_portfolioBalance;
+    bytes32 s_mostRecentRequestId;
+    uint64 s_secretVersion;
+    uint8 s_secretSlot;
 
     mapping(bytes32 requestId => dTslaRequest request) private s_requestIdToRequest;
     mapping(address user => uint256 pendingWithdrawlAmount) private s_userToWithdrawlAmount;
 
-    uint8 donHostedSecretsSlotID = 0;
-    uint64 donHostedSecretsVersion = 1721067443;
+    address public i_tslaUsdFeed;
+    address public i_usdcUsdFeed;
+    address public i_redemptionCoin;
 
+    uint256 private immutable i_redemptionCoinDecimals;
+
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
+    event Response(bytes32 indexed requestId, uint256 character, bytes response, bytes err);
+
+    /*//////////////////////////////////////////////////////////////
+                               FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+    /**
+    * @notice Initializes the contract with the Chainlink router address and sets the contract owner
+    */
     constructor(
         string memory mintSourceCode, 
-        string memory redeemSourceCode,
-        uint64 subId
+        string memory redeemSourceCode, 
+        uint64 subId,
+        address functionsRouter,
+        bytes32 donId,
+        address tslaPriceFeed,
+        address usdcPriceFeed,
+        address redemptionCoin,
+        uint64 secretVersion,
+        uint8 secretSlot
     ) 
         ConfirmedOwner(msg.sender) 
-        FunctionsClient(SEPOLIA_FUNCTIONS_ROUTER)
-        ERC20('dTSLA', 'dTSLA') 
+        FunctionsClient(functionsRouter) 
+        ERC20('Backed TSLA', 'dTSLA') 
     {
-        s_mintSourceCode = mintSourceCode;
-        s_redeemSourceCode = redeemSourceCode;
+        s_mintSource = mintSourceCode;
+        s_redeemSource = redeemSourceCode;
+        s_functionsRouter = functionsRouter;
+        s_donID = donId;
+        i_tslaUsdFeed = tslaPriceFeed;
+        i_usdcUsdFeed = usdcPriceFeed;
         i_subId = subId;
+        i_redemptionCoin = redemptionCoin;
+        i_redemptionCoinDecimals = ERC20(redemptionCoin).decimals();
+        s_secretVersion = secretVersion;
+        s_secretSlot = secretSlot;
     }
 
-    // Send an HTTP request to:
-    // 1. See how much TSLA is brought
-    // 2. If enough TSLA is in the alpaca account, mint dTSLA
-    function sendMintRequest(uint256 amount) external onlyOwner returns (bytes32) {
+    function setSecretVersion(uint64 secretVersion) external onlyOwner {
+        s_secretVersion = secretVersion;
+    }
+
+    function setSecretSlot(uint8 secretSlot) external onlyOwner {
+        s_secretSlot = secretSlot;
+    }
+
+    /**
+    * @notice Sends an HTTP request for character information
+    * @dev If you pass 0, that will act just as a way to get an updated portfolio balance
+    * @return requestId The ID of the request
+    */
+    function sendMintRequest(uint256 amountOfTokensToMint) external onlyOwner whenNotPaused returns (bytes32 requestId) {
+        // they want to mint $100 and the portifolio has $200 - then that's ok
+        if (_getCollateralRatioAdjustedTotalBalance(amountOfTokensToMint) > s_portfolioBalance) {
+            revert dTSLA__NotEnoughtCollateral();
+        }
         FunctionsRequest.Request memory req;
-        req.initializeRequestForInlineJavaScript(s_mintSourceCode);
-        req.addDONHostedSecrets(donHostedSecretsSlotID, donHostedSecretsVersion);
-        bytes32 requestId = _sendRequest(req.encodeCBOR(), i_subId, GAS_LIMIT, DON_ID);
-        s_mostRecentRequestId = requestId;
-        s_requestIdToRequest[requestId] = dTslaRequest(amount, msg.sender, MintOrRedeem.mint);
+        req.initializeRequestForInlineJavaScript(s_mintSource); // initialize the request with JS code
+        req.addDONHostedSecrets(s_secretSlot, s_secretVersion);
+
+        // send the request and store the request ID
+        requestId = _sendRequest(req.encodeCBOR(), i_subId, GAS_LIMIT, s_donID);
+        s_requestIdToRequest[requestId] = dTslaRequest(amountOfTokensToMint, msg.sender, MintOrRedeem.mint);
         return requestId;
     }
 
-    // Return the amount of TSLA value (in USD) is stored in our broker
-    // If we have enough TSLA token, mint the dTSLA
+    /** 
+    * @notice user sends a Chainlink Functions request to sell TSLA for redemptionCoin
+    * @notice this will put the redemptionCoin in a withdrawl queue that the user must call to redeem
+    * 
+    * @dev Burn dTSLA
+    * @dev Sell TSLA on brokerage
+    * @dev Buy USDC on brokerage
+    * @dev Send USDC to this contract for user to withdraw
+    * 
+    * @param amountdTsla - the amount of dTSLA to redeem
+    */
+    function sendRedeemRequest(uint256 amountdTsla) external whenNotPaused returns (bytes32 requestId) {
+        // Should be able to just always redeem?
+        // @audit potential exploit here, where if a user can redeem more than the collateral amount
+        // Checks
+        // Remember, this has 18 decimals
+        uint256 amountTslaInUsdc = getUsdcValueOfUsd(getUsdcValueOfTsla(amountdTsla));
+        if (amountTslaInUsdc < MINIMUM_REDEMPTION_COIN_REDEMPTION_AMOUNT) {
+            revert dTSLA__BelowMinimumRedemption();
+        }
+
+        // Internal Effects
+        FunctionsRequest.Request memory req;
+        req.initializeRequestForInlineJavaScript(s_redeemSource); // Initialize the request with JS code
+        string[] memory args = new string[](2);
+        args[0] = amountdTsla.toString();
+        // The transaction will fail if it's outside of 2% slippage
+        // This could be a future improvement to make the slippage a parameter by someone
+        args[1] = amountTslaInUsdc.toString();
+        req.setArgs(args);
+
+        // Send the request and store the request ID
+        // We are assuming requestId is unique
+        requestId = _sendRequest(req.encodeCBOR(), i_subId, GAS_LIMIT, s_donID);
+        s_requestIdToRequest[requestId] = dTslaRequest(amountdTsla, msg.sender, MintOrRedeem.redeem);
+ 
+        // External Interactions
+        _burn(msg.sender, amountdTsla);
+    }
+
+    /**
+     * @notice Callback function for fulfilling a request
+     * @param requestId The ID of the request to fulfill
+     * @param response The HTTP response data
+     */
+    function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory /*err*/) internal override whenNotPaused {
+        s_requestIdToRequest[requestId].mintOrRedeem == MintOrRedeem.mint ? _mintFulFillRequest(requestId, response) : _redeemFulFillRequest(requestId, response);
+    }
+
+    function withdraw() external whenNotPaused {
+        uint256 amountToWithdraw = s_userToWithdrawlAmount[msg.sender];
+        s_userToWithdrawlAmount[msg.sender] = 0;
+        // Send the user their USDC
+        bool succ = ERC20(i_redemptionCoin).transfer(msg.sender, amountToWithdraw);
+        if (!succ) {
+            revert dTSLA__RedemptionFailed();
+        }
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                INTERNAL
+    //////////////////////////////////////////////////////////////*/
     function _mintFulFillRequest(bytes32 requestId, bytes memory response) internal {
         uint256 amountOfTokensToMint = s_requestIdToRequest[requestId].amountOfToken;
         s_portfolioBalance = uint256(bytes32(response));
 
-        // if TSLA collateral (how much TSLA we have bought) > dTSLA to mint -> mint
-        // How much TSLA in $$$ do we have?
-        // How much TSLA in $$$ are we minting?
         if (_getCollateralRatioAdjustedTotalBalance(amountOfTokensToMint) > s_portfolioBalance) {
             revert dTSLA__NotEnoughtCollateral();
         }
@@ -95,63 +214,34 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
         if (amountOfTokensToMint != 0) {
             _mint(s_requestIdToRequest[requestId].requester, amountOfTokensToMint);
         }
+        // Do we need to return anything?
     }
 
-    /// @notice User sends a request to sell TSLA for USDC (redemptionToken)
-    /// this will, have the chainlink function call our alpaca (bank) and do the following
-    /// 1. Sell TSLA on the brokerage
-    /// 2. Buy USDC on the brokerage
-    /// 3. Send USDC to this contract for the user to withdraw
-    function sendRedeemRequest(uint256 amountdTsla) external {
-        uint256 amountTslaInUsdc = getUsdcValueOfUsd(getUsdcValueOfTsla(amountdTsla));
-        if (amountTslaInUsdc < MINIMUM_WITHDRAWL_AMOUNT) {
-            revert dTSLA__DoesntMeetMinimumWithdrawlAmount();
-        }
-        FunctionsRequest.Request memory req;
-        req.initializeRequestForInlineJavaScript(s_redeemSourceCode);
-
-        string[] memory args = new string[](2);
-        args[0] = amountdTsla.toString();
-        args[1] = amountTslaInUsdc.toString();
-        req.setArgs(args);
-
-        bytes32 requestId = _sendRequest(req.encodeCBOR(), i_subId, GAS_LIMIT, DON_ID);
-        s_requestIdToRequest[requestId] = dTslaRequest(amountdTsla, msg.sender, MintOrRedeem.redeem);
-        s_mostRecentRequestId = requestId;
-        _burn(msg.sender, amountdTsla);
-    }
-
+    /**
+    * @notice the callback for the redeem request
+    * At this point, USDC should be in this contract, and we need to update the user
+    * That they can now withdraw their USDC
+    * 
+    * @param requestId - the requestId that was fulfilled
+    * @param response - the response from the request, it'll be the amount of USDC that was sent
+    */
     function _redeemFulFillRequest(bytes32 requestId, bytes memory response) internal {
-        // assume for now this has 18 decimals
+        // This is going to have redemptioncoindecimals decimals
         uint256 usdcAmount = uint256(bytes32(response));
+        uint256 usdcAmountWad;
+        if (i_redemptionCoinDecimals < 18) {
+            usdcAmountWad = usdcAmount * (10 ** (18 - i_redemptionCoinDecimals));
+        }
         if (usdcAmount == 0) {
+            // revert dTSLA__RedemptionFailed();
+            // Redemption failed, we need to give them a refund of dTSLA
+            // This is a potential exploit, look at this line carefully!!
             uint256 amountOfdTSLABurned = s_requestIdToRequest[requestId].amountOfToken;
             _mint(s_requestIdToRequest[requestId].requester, amountOfdTSLABurned);
             return;
         }
+
         s_userToWithdrawlAmount[s_requestIdToRequest[requestId].requester] += usdcAmount;
-    }
-
-    function withdraw() external {
-        uint256 amountToWithdraw = s_userToWithdrawlAmount[msg.sender];
-        s_userToWithdrawlAmount[msg.sender] = 0;
-        bool succ = ERC20(0xAF0d217854155ea67D583E4CB5724f7caeC3Dc87).transfer(msg.sender, amountToWithdraw);
-        if (!succ) {
-            revert dTSLA__TransferFailed();
-        }
-    }
-
-    function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory /*err*/) internal override {
-        //s_requestIdToRequest[requestId].mintOrRedeem == MintOrRedeem.mint ? _mintFulFillRequest(requestId, response) : _redeemFulFillRequest(requestId, response);
-        s_portfolioBalance = uint256(bytes32(response));
-    }
-
-    function finishMint() external onlyOwner {
-        uint256 amountOfTokensToMint = s_requestIdToRequest[s_mostRecentRequestId].amountOfToken;
-        if (_getCollateralRatioAdjustedTotalBalance(amountOfTokensToMint) > s_portfolioBalance) {
-            revert dTSLA__NotEnoughtCollateral();
-        }
-        _mint(s_requestIdToRequest[s_mostRecentRequestId].requester, amountOfTokensToMint);
     }
 
     function _getCollateralRatioAdjustedTotalBalance(uint256 amountOfTokensToMint) internal view returns (uint256) {
@@ -159,62 +249,50 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
         return (calculatedNewTotalValue * COLLATERAL_RATIO) / COLLATERAL_PRECISION;
     }
 
-    // The new expected total value in USD of all the dTSLA tokens combined
-    function getCalculatedNewTotalValue(uint256 addedNumberOfTokens) internal view returns (uint256) {
-        // 10 dtsla tokens + 5 dtsla tokens = 15 dtsla tokens * tsla price (100) = 1500
-        return ((totalSupply() + addedNumberOfTokens) * getTslaPrice()) / PRECISION;
+    /*//////////////////////////////////////////////////////////////
+                             VIEW AND PURE
+    //////////////////////////////////////////////////////////////*/
+    function getPortfolioBalance() public view returns (uint256) {
+        return s_portfolioBalance;
     }
 
-    function getUsdcValueOfUsd(uint256 usdAmount) public view returns (uint256) {
-        return (usdAmount * getUsdcPrice()) / PRECISION;
+     // TSLA USD has 8 decimal places, so we add an additional 10 decimal places
+    function getTslaPrice() public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(i_tslaUsdFeed);
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        return uint256(price) * ADDITIONAL_FEED_PRECISION;
+    }
+
+    function getUsdcPrice() public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(i_usdcUsdFeed);
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        return uint256(price) * ADDITIONAL_FEED_PRECISION;
     }
 
     function getUsdcValueOfTsla(uint256 usdAmount) public view returns (uint256) {
         return (usdAmount * getTslaPrice()) / PRECISION;
     }
 
-    function getTslaPrice() public view returns (uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(SEPOLIA_TSLA_PRICE_FEED);
-        (, int256 price, , , ) = priceFeed.latestRoundData();
-        return uint256(price) * ADDITIONAL_FEED_PRECISION; // so that we have 18 decimals
+    /** 
+    * Pass the USD amount with 18 decimals (WAD)
+    * Return the redemptionCoin amount with 18 decimals (WAD)
+    * 
+    * @param usdAmount - the amount of USD to convert to USDC in WAD
+    * @return the amount of redemptionCoin with 18 decimals (WAD)
+    */
+    function getUsdcValueOfUsd(uint256 usdAmount) public view returns (uint256) {
+        return (usdAmount * PRECISION) / getUsdcPrice(); // talvez isso esteja errado
     }
 
-    function getUsdcPrice() public view returns (uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(SEPOLIA_USDC_PRICE_FEED);
-        (, int256 price, , , ) = priceFeed.latestRoundData();
-        return uint256(price) * ADDITIONAL_FEED_PRECISION;
+    function getCalculatedNewTotalValue(uint256 addedNumberOfTsla) internal view returns (uint256) {
+        return ((totalSupply() + addedNumberOfTsla) * getTslaPrice()) / PRECISION;
     }
 
     function getRequest(bytes32 requestId) public view returns (dTslaRequest memory) {
         return s_requestIdToRequest[requestId];
     }
 
-    function getPendingWithdrawlAmount(address user) public view returns (uint256) {
+    function getWithdrawlAmount(address user) public view returns (uint256) {
         return s_userToWithdrawlAmount[user];
-    }
-
-    function getPortfolioBalance() public view returns (uint256) {
-        return i_subId;
-    }
-
-    function getMintSourceCode() public view returns (string memory) {
-        return s_mintSourceCode;
-    }
-
-    function getRedeemSourceCode() public view returns (string memory) {
-        return s_redeemSourceCode;
-    }
-
-    function getCollateralRatio() public pure returns (uint256) {
-        return COLLATERAL_RATIO;
-    }
-
-    function getCollateralPrecision() public pure returns (uint256) {
-        return COLLATERAL_PRECISION;
-    }
+    } 
 }
-
-// parei no 1:00:47
-
-// 1:00:58 talvez vc terá que criar um contrato para popular
-// SEPOLIA_USDC
