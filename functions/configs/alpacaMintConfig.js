@@ -15,5 +15,3 @@ const requestConfig = {
 };
 
 module.exports = requestConfig;
-
-// parei em 1:24:58, script não está rodando, talvez seja a versão do node...

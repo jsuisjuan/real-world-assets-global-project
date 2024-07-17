@@ -5,8 +5,7 @@ pragma solidity 0.8.25;
 import { ConfirmedOwner } from '@chainlink/contracts/v0.8/ConfirmedOwner.sol';
 import { FunctionsClient } from '@chainlink/contracts/v0.8/functions/dev/v1_0_0/FunctionsClient.sol';
 import { FunctionsRequest } from '@chainlink/contracts/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol';
-import { AggregatorV3Interface } from '@chainlink/contracts/v0.8/interfaces/AggregatorV3Interface.sol';
-// vou precisar importar a OracleLib
+import { OracleLib, AggregatorV3Interface } from "./libraries/OracleLib.sol";
 import { ERC20 } from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import { Strings } from '@openzeppelin/contracts/utils/Strings.sol';
 import { Pausable } from '@openzeppelin/contracts/utils/Pausable.sol';
@@ -18,7 +17,7 @@ import { Pausable } from '@openzeppelin/contracts/utils/Pausable.sol';
  */
 contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20, Pausable {
     using FunctionsRequest for FunctionsRequest.Request;
-    //using OracleLib for AggregatorV3Interface;
+    using OracleLib for AggregatorV3Interface;
     using Strings for uint256;
 
     error dTSLA__NotEnoughtCollateral();
@@ -77,9 +76,9 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20, Pausable {
     * @notice Initializes the contract with the Chainlink router address and sets the contract owner
     */
     constructor(
-        string memory mintSourceCode, 
-        string memory redeemSourceCode, 
         uint64 subId,
+        string memory mintSource,
+        string memory redeemSource,
         address functionsRouter,
         bytes32 donId,
         address tslaPriceFeed,
@@ -87,13 +86,13 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20, Pausable {
         address redemptionCoin,
         uint64 secretVersion,
         uint8 secretSlot
-    ) 
-        ConfirmedOwner(msg.sender) 
-        FunctionsClient(functionsRouter) 
-        ERC20('Backed TSLA', 'dTSLA') 
+    )
+        FunctionsClient(functionsRouter)
+        ConfirmedOwner(msg.sender)
+        ERC20("Backed TSLA", "bTSLA")
     {
-        s_mintSource = mintSourceCode;
-        s_redeemSource = redeemSourceCode;
+        s_mintSource = mintSource;
+        s_redeemSource = redeemSource;
         s_functionsRouter = functionsRouter;
         s_donID = donId;
         i_tslaUsdFeed = tslaPriceFeed;
@@ -101,6 +100,7 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20, Pausable {
         i_subId = subId;
         i_redemptionCoin = redemptionCoin;
         i_redemptionCoinDecimals = ERC20(redemptionCoin).decimals();
+
         s_secretVersion = secretVersion;
         s_secretSlot = secretSlot;
     }
