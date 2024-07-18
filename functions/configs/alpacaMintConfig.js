@@ -5,8 +5,8 @@ const requestConfig = {
     'source': fs.readFileSync('./functions/sources/alpacaBalance.js').toString(),
     'codeLocation': Location.Inline,
     'secrets': {
-        'alpacaKey': process.env.ALPACA_API_KEY,
-        'alpacaSecret': process.env.ALPACA_SECRET_KEY
+        'alpacaKey': process.env.ALPACA_API_KEY ?? '',
+        'alpacaSecret': process.env.ALPACA_SECRET_KEY ?? ''
     },
     'secretsLocation': Location.DONHosted,
     'args': [],
