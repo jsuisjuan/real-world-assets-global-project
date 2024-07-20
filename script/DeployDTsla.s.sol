@@ -18,15 +18,21 @@ contract DeployDTsla is Script {
 
     function getdTslaRequirements() public returns (IGetTslaReturnTypes.GetTslaReturnType memory) {
         HelperConfig helperConfig = new HelperConfig();
-        (address tslaFeed, address usdcFeed, /*address ethFeed*/, address functionsRouter, bytes32 donId, uint64 subId, address redemptionCoin, , uint64 secretVersion, uint8 secretSlot) = helperConfig.activeNetworkConfig();
+        (address tslaFeed, address usdcFeed, , address functionsRouter, bytes32 donId, uint64 subId, address redemptionCoin, , uint64 secretVersion, uint8 secretSlot) = helperConfig.activeNetworkConfig();
+        verifyEmptyAttributes(tslaFeed, usdcFeed, functionsRouter, donId, subId);
+        (string memory mintSource, string memory redeemSource) = readSourceFiles();
+        return IGetTslaReturnTypes.GetTslaReturnType(subId, mintSource, redeemSource, functionsRouter, donId, tslaFeed, usdcFeed, redemptionCoin, secretVersion, secretSlot);
+    }
 
+    function verifyEmptyAttributes(address tslaFeed, address usdcFeed, address functionsRouter, bytes32 donId, uint64 subId) public pure {
         if (tslaFeed == address(0) || usdcFeed == address(0) || functionsRouter == address(0) || donId == bytes32(0) || subId == 0) {
             revert("something is wrong");
         }
-        
-        string memory mintSource = vm.readFile(alpacaMintSource);
-        string memory redeemSource = vm.readFile(alpacaRedeemSource);
-        return IGetTslaReturnTypes.GetTslaReturnType(subId, mintSource, redeemSource, functionsRouter, donId, tslaFeed, usdcFeed, redemptionCoin, secretVersion, secretSlot);
+    }
+
+    function readSourceFiles() internal view returns (string memory mintSource, string memory redeemSource) {
+        mintSource = vm.readFile(alpacaMintSource);
+        redeemSource = vm.readFile(alpacaRedeemSource);
     }
 
     function deployTransactions(IGetTslaReturnTypes.GetTslaReturnType memory tslaReturnType) public {
