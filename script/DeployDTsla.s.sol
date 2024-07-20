@@ -12,24 +12,8 @@ contract DeployDTsla is Script {
     string constant alpacaRedeemSource = "./functions/sources/sellTslaAndSendUsdc.js";
 
     function run() external {
-        // Get params
         IGetTslaReturnTypes.GetTslaReturnType memory tslaReturnType = getdTslaRequirements();
-        
-        // Actually deploy
-        vm.startBroadcast(); // inciando broadcast para enviar transações para a rede blockchain
-        deployDTSLA(        // realiza o deploy do contrato dTSLA
-            tslaReturnType.subId, 
-            tslaReturnType.mintSource, 
-            tslaReturnType.redeemSource, 
-            tslaReturnType.functionsRouter, 
-            tslaReturnType.donId, 
-            tslaReturnType.tslaFeed, 
-            tslaReturnType.usdcFeed, 
-            tslaReturnType.redemptionCoin, 
-            tslaReturnType.secretVersion, 
-            tslaReturnType.secretSlot
-        ); 
-        vm.stopBroadcast(); // finalizando broadcast para enviar transações para uma rede blockchain
+        deployTransactions(tslaReturnType);
     }
 
     function getdTslaRequirements() public returns (IGetTslaReturnTypes.GetTslaReturnType memory) {
@@ -43,6 +27,12 @@ contract DeployDTsla is Script {
         string memory mintSource = vm.readFile(alpacaMintSource);
         string memory redeemSource = vm.readFile(alpacaRedeemSource);
         return IGetTslaReturnTypes.GetTslaReturnType(subId, mintSource, redeemSource, functionsRouter, donId, tslaFeed, usdcFeed, redemptionCoin, secretVersion, secretSlot);
+    }
+
+    function deployTransactions(IGetTslaReturnTypes.GetTslaReturnType memory tslaReturnType) public {
+        vm.startBroadcast();
+        deployDTSLA(tslaReturnType.subId, tslaReturnType.mintSource, tslaReturnType.redeemSource, tslaReturnType.functionsRouter, tslaReturnType.donId, tslaReturnType.tslaFeed, tslaReturnType.usdcFeed, tslaReturnType.redemptionCoin, tslaReturnType.secretVersion, tslaReturnType.secretSlot); 
+        vm.stopBroadcast();
     }
 
     function deployDTSLA(uint64 subId, string memory mintSource, string memory redeemSource, address functionsRouter, bytes32 donId, address tslaFeed, address usdcFeed, address redemptionCoin, uint64 secretVersion, uint8 secretSlot) public returns (dTSLA) {
