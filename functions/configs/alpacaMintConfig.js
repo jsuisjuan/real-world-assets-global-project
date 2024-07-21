@@ -4,10 +4,7 @@ const { Location, ReturnType, CodeLanguage } = require('@chainlink/functions-too
 const requestConfig = {
     'source': fs.readFileSync('./functions/sources/alpacaBalance.js').toString(),
     'codeLocation': Location.Inline,
-    'secrets': {
-        'alpacaKey': process.env.ALPACA_API_KEY ?? '',
-        'alpacaSecret': process.env.ALPACA_SECRET_KEY ?? ''
-    },
+    'secrets': { 'alpacaKey': process.env.ALPACA_API_KEY ?? '', 'alpacaSecret': process.env.ALPACA_SECRET_KEY ?? '' },
     'secretsLocation': Location.DONHosted,
     'args': [],
     'codeLanguage': CodeLanguage.JavaScript,

@@ -1,15 +1,9 @@
 
-if (secrets.alpacaKey === '' || secrets.alpacaSecret === '' ) {
-    throw Error('Need alpaca keys');
-}
+if (secrets.alpacaKey === '' || secrets.alpacaSecret === '' ) throw Error('Need alpaca keys');
 
 const alpacaRequest = Functions.makeHttpRequest({
     'url': 'https://paper-api.alpaca.markets/v2/account',
-    'headers': {
-        'accept': 'application/json',
-        'APCA-API-KEY-ID': secrets.alpacaKey,
-        'APCA-API-SECRET-KEY': secrets.alpacaSecret
-    }
+    'headers': { 'accept': 'application/json', 'APCA-API-KEY-ID': secrets.alpacaKey, 'APCA-API-SECRET-KEY': secrets.alpacaSecret }
 });
 
 const [response] = await Promise.all([alpacaRequest]);
