@@ -29,7 +29,9 @@ async function uploadSecrets() {
 */
 function getEnvVariable(name, errorMessage) {
     const envValue = process.env[name];
-    if (!envValue) throw new Error(errorMessage);
+    if (!envValue) {
+        throw new Error(errorMessage);
+    }
     return envValue;
 }
 
@@ -86,7 +88,9 @@ async function uploadToGateways(secretsManager, encryptedSecrets, gatewayUrls, s
 * @throws {Error} Throws an error if the upload was not successful.
 */
 function verifyUploadResult(uploadResult) {
-    if (!uploadResult.success) throw new Error(`Failed to upload secrets: ${uploadResult.errorMessage}`);
+    if (!uploadResult.success) {
+        throw new Error(`Failed to upload secrets: ${uploadResult.errorMessage}`);
+    }
 }
 
 /**

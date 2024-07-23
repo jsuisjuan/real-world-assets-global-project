@@ -38,9 +38,9 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20, Pausable {
     uint256 constant PRECISION = 1e18;
     uint256 constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint32 constant GAS_LIMIT = 300_000;
-    uint256 constant COLLATERAL_RATIO = 200; // 200% collateral ration means if there is $200 of TSLA in the brokerage, we can mint AT MOST %100 of dTSLA
+    uint256 constant COLLATERAL_RATIO = 200;
     uint256 constant COLLATERAL_PRECISION = 100;
-    uint256 constant MINIMUM_REDEMPTION_COIN_REDEMPTION_AMOUNT = 100e18; // USDC has 6 decimals
+    uint256 constant MINIMUM_REDEMPTION_COIN_REDEMPTION_AMOUNT = 100e18;
 
     address s_functionsRouter;
     string s_mintSource;
@@ -147,8 +147,7 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20, Pausable {
     function createRedeemFunctionsRequest(uint256 amountdTsla, uint256 amountTslaInUsdc) private view returns (FunctionsRequest.Request memory req) {
         req.initializeRequestForInlineJavaScript(s_redeemSource);
         string[] memory args = new string[](2);
-        args[0] = amountdTsla.toString();
-        args[1] = amountTslaInUsdc.toString();
+        (args[0], args[1]) = (amountdTsla.toString(), amountTslaInUsdc.toString());
         req.setArgs(args);
         return req;
     }
@@ -189,7 +188,9 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20, Pausable {
     */
     function sendUserUsdc(uint256 amountToWithdraw) private {
         bool succ = ERC20(i_redemptionCoin).transfer(msg.sender, amountToWithdraw);
-        if (!succ) revert dTSLA__RedemptionFailed();
+        if (!succ) {
+            revert dTSLA__RedemptionFailed();
+        }
     }
 
     /**
@@ -215,7 +216,9 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20, Pausable {
         uint256 amountOfTokensToMint = s_requestIdToRequest[requestId].amountOfToken;
         s_portfolioBalance = uint256(bytes32(response));
         checkPortfolioBalance(amountOfTokensToMint);
-        if (amountOfTokensToMint != 0) _mint(s_requestIdToRequest[requestId].requester, amountOfTokensToMint);
+        if (amountOfTokensToMint != 0) {
+            _mint(s_requestIdToRequest[requestId].requester, amountOfTokensToMint);
+        }
     }
 
     /**
