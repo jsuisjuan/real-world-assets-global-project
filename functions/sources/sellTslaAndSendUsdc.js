@@ -2,7 +2,7 @@ const { secrets } = require("../configs/alpacaMintConfig");
 
 const ASSET_TICKER = 'TSLA';
 const CRYPTO_TICKER = 'USDCUSD';
-const RWA_CONTRACT = '0x7358D4CDF1c468aA018ec41ddD98b44879a10962';
+const RWA_CONTRACT = '0xd8b51ead97A4c5C47C01E02748d6930745267D06';
 const SLEEP_TIME = 5000;
 
 /**
