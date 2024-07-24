@@ -10,7 +10,8 @@ async function uploadSecrets() {
     const rpcUrl = getEnvVariable('SEPOLIA_RPC_URL', 'RPC URL not provided - check your environment variables');
     
     const signer = getSigner(privateKey, rpcUrl);
-    const secretsManager = initializeSecretsManager(signer, routerAddress);
+    const secretsManager = new SecretsManager({ signer: signer, functionsRouterAddress: routerAddress, donId: process.env.DON_NETWORK_ID });
+    await secretsManager.initialize();
 
     const secrets = getSecrets();
     const encryptedSecretsObj = await secretsManager.encryptSecrets(secrets);
@@ -53,18 +54,6 @@ function getSigner(privateKey, rpcUrl) {
     const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
     const wallet = new ethers.Wallet(privateKey);
     return wallet.connect(provider);
-}
-
-/**
-* @notice Initializes and returns the SecretsManager.
-* @param {ethers.Signer} signer - The signer.
-* @param {string} routerAddress - The router address.
-* @returns {SecretsManager} - The initialized SecretsManager.
-*/
-async function initializeSecretsManager(signer, routerAddress) {
-    const secretsManager = new SecretsManager({ 'signer': signer, 'functionsRouterAddress': routerAddress, 'donId': process.env.DON_NETWORK_ID });
-    await secretsManager.initialize();
-    return secretsManager;
 }
 
 /**

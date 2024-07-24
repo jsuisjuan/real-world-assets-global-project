@@ -58,7 +58,7 @@ contract HelperConfig {
             donId: 0x66756e2d657468657265756d2d7365706f6c69612d3100000000000000000000,
             subId: 3223,
             redemptionCoin: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238,
-            secretVersion: 1721067443,
+            secretVersion: 1721861128,
             secretSlot: 0
         });
     }
