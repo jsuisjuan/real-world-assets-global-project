@@ -146,10 +146,18 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20, Pausable {
     */
     function createRedeemFunctionsRequest(uint256 amountdTsla, uint256 amountTslaInUsdc) private view returns (FunctionsRequest.Request memory req) {
         req.initializeRequestForInlineJavaScript(s_redeemSource);
-        string[] memory args = new string[](2);
-        (args[0], args[1]) = (amountdTsla.toString(), amountTslaInUsdc.toString());
+        string[] memory args = new string[](3);
+        (args[0], args[1], args[2]) = (amountdTsla.toString(), amountTslaInUsdc.toString(), getAddress());
         req.setArgs(args);
         return req;
+    }
+
+    /**
+    * @dev Returns the contract's address as a hexadecimal string.
+    * @return The contract's address in hexadecimal format.
+    */
+    function getAddress() public view returns (string memory) {
+        return Strings.toHexString(uint160(address(this)), 20);
     }
 
     /**

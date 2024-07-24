@@ -2,7 +2,6 @@ const { secrets } = require("../configs/alpacaMintConfig");
 
 const ASSET_TICKER = 'TSLA';
 const CRYPTO_TICKER = 'USDCUSD';
-const RWA_CONTRACT = '0xd8b51ead97A4c5C47C01E02748d6930745267D06';
 const SLEEP_TIME = 5000;
 
 /**
@@ -13,6 +12,7 @@ const SLEEP_TIME = 5000;
 async function main() {
     const amountTsla = args[0];
     const amountUsdc = args[1];
+    const contractAddress = args[2];
     _checkKeys();
 
     let orderFilled = await executeTrade(ASSET_TICKER, amountTsla, 'sell');
@@ -21,7 +21,7 @@ async function main() {
     orderFilled = await executeTrade(CRYPTO_TICKER, amountTsla, 'buy');
     if (!orderFilled) return Functions.encodeUint256(0);
 
-    const transferId = await sendUsdcToContract(amountUsdc);
+    const transferId = await sendUsdcToContract(amountUsdc, contractAddress);
     if (transferId === null) return Functions.encodeUint256(0);
     
     const transferCompleted = await waitForCryptoTransferToComplete(transferId);
@@ -137,7 +137,7 @@ async function checkOrderStatus(client_order_id) {
 * @param {string} usdcAmount - The amount of USDC to send.
 * @returns {Promise<string|null>} The transfer ID if successful, otherwise null.
 */
-async function sendUsdcToContract(usdcAmount) {
+async function sendUsdcToContract(usdcAmount, contractAddress) {
     const transferRequest = Functions.makeHttpRequest({
         method: 'POST',
         url: 'https://paper-api.alpaca.markets/v2/wallets/transfers',
@@ -147,7 +147,7 @@ async function sendUsdcToContract(usdcAmount) {
             'APCA-API-KEY-ID': secrets.alpacaKey,
             'APCA-API-SECRET-KEY': secrets.alpacaSecret
         },
-        data: { amount: usdcAmount, address: RWA_CONTRACT, asset: CRYPTO_TICKER }
+        data: { amount: usdcAmount, address: contractAddress, asset: CRYPTO_TICKER }
     });
     const response = await transferRequest;
     return response.status === 200 ? response.data.id : null;
