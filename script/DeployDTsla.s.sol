@@ -28,7 +28,7 @@ contract DeployDTsla is Script {
     */
     function getdTslaRequirements() public returns (IGetTslaReturnTypes.GetTslaReturnType memory) {
         HelperConfig helperConfig = new HelperConfig();
-        (address tslaFeed, address usdcFeed, , address functionsRouter, bytes32 donId, uint64 subId, address redemptionCoin, , uint64 secretVersion, uint8 secretSlot) = helperConfig.activeNetworkConfig();
+        (address tslaFeed, address usdcFeed, address functionsRouter, bytes32 donId, uint64 subId, address redemptionCoin, uint64 secretVersion, uint8 secretSlot) = helperConfig.activeNetworkConfig();
         verifyEmptyAttributes(tslaFeed, usdcFeed, functionsRouter, donId, subId);
         (string memory mintSource, string memory redeemSource) = readSourceFiles();
         return IGetTslaReturnTypes.GetTslaReturnType(subId, mintSource, redeemSource, functionsRouter, donId, tslaFeed, usdcFeed, redemptionCoin, secretVersion, secretSlot);
