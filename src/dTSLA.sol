@@ -50,7 +50,7 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
     mapping(address user => uint256 pendingWithdrawlAmount) private s_userToWithdrawlAmount;
 
     uint8 donHostedSecretsSlotID = 0;
-    uint64 donHostedSecretsVersion = 1721067443;
+    uint64 donHostedSecretsVersion = 1722381995;
 
     constructor(
         string memory mintSourceCode, 
@@ -175,7 +175,7 @@ contract dTSLA is ConfirmedOwner, FunctionsClient, ERC20 {
     }
 
     function getPortfolioBalance() public view returns (uint256) {
-        return i_subId;
+        return s_portfolioBalance;
     }
 
     function getMintSourceCode() public view returns (string memory) {
