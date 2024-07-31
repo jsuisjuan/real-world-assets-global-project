@@ -1,70 +1,40 @@
-## Foundry
+## Overview
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+This repository aims to provide an educational demonstration of tokenizing real-world assets, specifically stocks, on the blockchain. The project incorporates various functionalities to ensure the proper handling and security of the token minting and redeeming processes. This repository contains the smart contract code for `dTSLA`, a decentralized token backed by Tesla stocks. The `dTSLA` contract utilizes Chainlink's Functions to interact with the Alpaca API for minting and redeeming tokens based on TSLA prices.
 
-Foundry consists of:
+## Features
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+- **Minting and Redeeming**: Allows users to mint `dTSLA` tokens by sending a mint request, which interacts with the Alpaca API to verify the portfolio balance. Users can also redeem `dTSLA` tokens back to USD equivalent.
+- **Chainlink Functions Integration**: Utilizes Chainlink's Functions to securely fetch and manage secrets for API interactions.
+- **Price Feeds**: Integrates Chainlink's decentralized price feeds to fetch the current TSLA and USDC prices, ensuring accurate and up-to-date valuations.
+- **Collateral Management**: Ensures that token minting is backed by sufficient collateral, maintaining a 200% collateral ratio to safeguard the value of `dTSLA` tokens.
+- **Security**: Implements owner-only functions, pausing capabilities, and withdrawal mechanisms to protect users' funds and contract integrity.
 
-## Documentation
+## Contracts
 
-https://book.getfoundry.sh/
+- **dTSLA.sol**: The main contract implementing the minting and redeeming logic, price feed integration, and Chainlink Functions interactions.
+- **Libraries**: Includes additional libraries for Oracle interactions and utility functions.
 
-## Usage
+## Getting Started
 
-### Build
+To deploy and interact with the `dTSLA` contract:
 
-```shell
-$ forge build
-```
+1. Clone the repository.
+2. Install dependencies and set up the environment variables as required.
+3. Deploy the contract to your preferred blockchain network.
+4. Use the provided scripts to upload secrets and interact with the contract functions.
 
-### Test
+## Requirements
 
-```shell
-$ forge test
-```
+- Solidity 0.8.25
+- Chainlink Contracts
+- OpenZeppelin Contracts
+- Node.js for running scripts and interacting with the Chainlink Functions
 
-### Format
+## Contributing
 
-```shell
-$ forge fmt
-```
+Contributions are welcome! Please fork the repository and create a pull request with your changes.
 
-### Gas Snapshots
+## License
 
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
-### Setup
-para fazer rodar as funções do chainlink rodar, tem que seguir os passos: https://docs.chain.link/chainlink-functions/getting-started#examine-the-code
-
-vai ter que criar uma rpc url key com infura
+This project is licensed under the MIT License.
